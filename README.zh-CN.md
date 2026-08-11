@@ -57,6 +57,8 @@ PortPilot 只连接 Mihomo 创建的本机 HTTP/SOCKS 端口，不会直接连�
 
 `npm run build` 会在 `apps/web/dist/pages` 生成真正的静态 Pages 站点，其中包含 `index.html` 和 `404.html`。根目录 `wrangler.jsonc` 已声明该输出目录。
 
+`wrangler.jsonc` 同时声明了构建命令 `npm run build`。仓库导入时必须执行该命令；否则日志会显示 **No build command specified**，Cloudflare 跳过构建后就无法找到 `apps/web/dist/pages`。
+
 ### Fork 并关联 Cloudflare
 
 1. 在 GitHub 点击 **Fork**，复制项目到自己的账号。
@@ -73,13 +75,17 @@ PortPilot 只连接 Mihomo 创建的本机 HTTP/SOCKS 端口，不会直接连�
 
 不需要环境变量。不要填写 `apps/web/dist/client`，该目录没有预渲染的 `index.html`，部署后会显示 404。
 
+Cloudflare 自动生成随机 Pages 项目名属于正常情况，不要求它与仓库名或 `wrangler.jsonc` 中的示例名称一致。
+
+如果 Cloudflare 自动读取 `wrangler.jsonc`，请确认日志中实际执行了 `npm run build`，而不是显示 **No build command specified**。已有项目可进入 **Settings → Builds & deployments**，手工把 Build command 改为 `npm run build`，保存后重新部署最新提交。
+
 ### Wrangler 手工部署
 
 ```powershell
 npm install
 npm run build
 npx wrangler login
-npm run deploy
+npx wrangler pages deploy apps/web/dist/pages --project-name <你的-Pages-项目名>
 ```
 
 部署成功后会获得 `*.pages.dev` 地址。自定义域名在 Pages 项目的 **Custom domains** 中设置。
@@ -89,6 +95,7 @@ npm run deploy
 - 确认使用的是 Cloudflare **Pages** 项目。
 - Build output directory 必须是 `apps/web/dist/pages`。
 - 确认构建日志中出现 `Cloudflare Pages output`。
+- 如果日志显示 **No build command specified**，请更新到最新提交，或在 Pages 设置中手工填写 `npm run build`。
 - 清除 Pages 构建缓存，再部署最新的 `main` 提交。
 - 如果曾填写 `apps/web/dist/client`，修改后重新部署，不能只刷新旧版本。
 

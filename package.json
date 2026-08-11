@@ -11,7 +11,7 @@
     "test": "npm test -w @multiport/core && npm run test -w @multiport/web",
     "lint": "npm run lint -w @multiport/web",
     "deploy": "npm run deploy:cloudflare",
-    "deploy:cloudflare": "npm exec -w @multiport/web wrangler -- pages deploy dist/pages --project-name multiport-web",
+    "deploy:cloudflare": "npm exec -w @multiport/web wrangler -- pages deploy dist/pages",
     "preview:cloudflare": "npm run deploy:cloudflare"
   }
 }

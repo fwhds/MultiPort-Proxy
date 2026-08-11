@@ -8,6 +8,9 @@
     "build": "npm run build -w @multiport/web",
     "typecheck": "npm run typecheck -w @multiport/core && npm run typecheck -w @multiport/web",
     "test": "npm test -w @multiport/core",
-    "package:deploy": "node scripts/package-deliverables.mjs"
+    "package:deploy": "node scripts/package-deliverables.mjs",
+    "deploy": "npm run deploy:cloudflare",
+    "deploy:cloudflare": "npm exec -w @multiport/web wrangler -- deploy --config dist/server/wrangler.json",
+    "preview:cloudflare": "npm exec -w @multiport/web wrangler -- versions upload --config dist/server/wrangler.json"
   }
 }

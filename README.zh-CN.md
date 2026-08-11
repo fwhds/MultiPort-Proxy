@@ -2,6 +2,8 @@
 
 [English](README.md) · [PortPilot Chrome 扩展](https://github.com/huades/PortPilot)
 
+[![一键部署到 Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/huades/MultiPort-Proxy)
+
 MultiPort-Proxy 是一个注重隐私的网页转换器，用来生成稳定的“一节点一端口”Mihomo 配置。粘贴 Clash/Mihomo YAML 或支持的分享链接，选择节点后即可导出可运行的 `mihomo.yaml`，以及供 PortPilot 导入且不含上游密钥的 `browser-profiles.json`。
 
 所有解析和生成操作都在浏览器本地完成。网页不会上传代理凭据、抓取远程订阅，不需要账号，也不会启动或控制 Mihomo/v2rayN 进程。
@@ -101,51 +103,69 @@ PortPilot 只连接本机 HTTP/SOCKS 监听端口，不直接连接 VLESS、VMes
 
 本项目实际部署目标是 **Cloudflare Workers**，不是传统的 Pages 静态目录上传。Vinext 会在 `apps/web/dist/server/` 中生成 Worker 入口、静态资源绑定和部署配置。
 
-### 方法一：GitHub Actions 自动部署（推荐）
+### 一键部署
 
-#### 1. 准备 Cloudflare
+点击顶部 **Deploy to Cloudflare** 按钮，登录 Cloudflare 与 GitHub，确认自动生成的仓库名和 Worker 名称后部署。Cloudflare 会识别根目录的 `build` 与 `deploy` 命令，并在你的 Git 账号下创建一个新仓库；之后推送代码即可继续通过 Workers Builds 发布。
 
-1. 登录 Cloudflare，进入 **Account API Tokens → Create Token**。
-2. 在 Custom 权限中选择 **Edit Cloudflare Workers**，只授权实际部署使用的账号。
-3. 创建并立即复制 Token；离开页面后不能再次查看完整 Token。
-4. 在 Cloudflare 账号主页复制 **Account ID**。这里需要的是账号 ID，不是 Zone ID。
+一键部署要求源仓库保持公开。部署包不包含任何代理节点或凭据，节点配置仍由使用者在自己的浏览器中本地输入。
 
-#### 2. 配置 GitHub
+### Cloudflare 控制台关联 GitHub（推荐）
 
-进入 GitHub 仓库的 **Settings → Secrets and variables → Actions → New repository secret**，添加：
+本方案不需要 GitHub Actions，也不需要在 GitHub 保存 Cloudflare API Token。构建和部署全部由 Cloudflare Workers Builds 完成。
 
-   - `CLOUDFLARE_API_TOKEN`
-   - `CLOUDFLARE_ACCOUNT_ID`
+#### 1. 导入 GitHub 仓库
 
-不要把 Token 写入 YAML、README、`.env` 或提交记录。
+1. 登录 Cloudflare，进入 **Workers & Pages → Create application**。
+2. 在 **Import a repository** 旁点击 **Get started**。
+3. 连接 GitHub；首次使用时授权 **Cloudflare Workers and Pages** GitHub App。
+4. 选择私有仓库 `huades/MultiPort-Proxy`。如果列表中没有该仓库，在 GitHub App 设置中为它增加访问权限。
+5. Worker 名称填写 `multiport-web`。名称必须与构建生成的 Wrangler 配置一致。
 
-#### 3. 首次部署
+已有 `multiport-web` Worker 时，不要重复创建：进入该 Worker 的 **Settings → Builds → Connect**，再关联同一仓库。
 
-1. 打开 **Actions → Deploy web to Cloudflare**。
-2. 点击 **Run workflow**，选择 `main` 后确认。
-3. 工作流依次安装依赖、执行类型检查和测试、构建 Worker、发布到 Cloudflare。
-4. 在 `Deploy Worker` 日志末尾复制生成的 `*.workers.dev` 地址。
+#### 2. 填写构建设置
 
-此后，`main` 分支中 `apps/web`、`packages/core` 或根目录包文件发生变化时会自动部署。工作流先构建，再执行：
+| 设置 | 填写内容 |
+|---|---|
+| Production branch | `main` |
+| Root directory | `/`（仓库根目录） |
+| Build command | `npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-gnu@1.0.1 && npm run typecheck && npm test && npm run build` |
+| Deploy command | `npm run deploy:cloudflare` |
+| Non-production branch deploy command | `npm run preview:cloudflare` |
 
-```powershell
-npx wrangler deploy --config dist/server/wrangler.json
+根目录必须保持为仓库根目录，因为 `apps/web` 依赖工作区中的 `packages/core`。不要把 Root directory 设置成 `apps/web`。
+
+#### 3. 保存并手动部署
+
+1. 点击 **Save and Deploy**，Cloudflare 会拉取 `main`、安装依赖、检查、测试、构建并部署。
+2. 以后需要手动重建时，进入 **Workers & Pages → multiport-web → Builds**，选择最新提交并点击 **Retry build** 或 **Deploy**。
+3. 当 `main` 有新提交时，关联项目默认也会自动构建；如只希望手动部署，可在 **Settings → Builds** 中关闭 Production branch 的自动构建，再按上一步手动触发。
+4. 构建成功后使用 Cloudflare 提供的 `*.workers.dev` 地址访问。
+
+#### 4. 可选构建范围
+
+在 **Settings → Builds** 中配置 Build watch paths，可只监听：
+
+```text
+apps/web/**
+packages/core/**
+package.json
+package-lock.json
 ```
 
-当前构建生成的 Worker 名称为 `multiport-web`，最终的 `*.workers.dev` 地址会显示在 Actions 部署日志中。
+README 单独修改时便不会触发网页重建。分支预览启用后，非 `main` 分支会使用 `preview:cloudflare` 上传预览版本，不会直接替换生产版本。
 
-#### 4. 验证部署
+#### 5. 验证部署
 
-打开部署地址后检查：中英文切换、示例解析、节点端口、YAML/JSON 预览和下载。Cloudflare 中可通过 **Workers & Pages → multiport-web → Deployments** 查看当前版本和部署历史。
+打开部署地址，检查中英文切换、示例解析、节点端口、HTTP/SOCKS5 档案、YAML/JSON 预览和下载。部署记录位于 **Workers & Pages → multiport-web → Deployments**，构建日志位于 **Builds**。
 
-### 方法二：本机命令行部署
+### 本机命令行备用部署
 
 ```powershell
 npm install
 npm run build
 npx wrangler login
-cd apps/web
-npx wrangler deploy --config dist/server/wrangler.json
+npm run deploy:cloudflare
 ```
 
 不要直接修改 `dist/server/wrangler.json`，每次构建都会重新生成。部署完成后，如需绑定自己的域名，可在 Cloudflare 中打开该 Worker，再通过 **Domains** 页面添加 Custom Domain。
@@ -156,17 +176,17 @@ npx wrangler deploy --config dist/server/wrangler.json
 - 回滚：进入 **Workers & Pages → multiport-web → Deployments**，在目标历史版本右侧菜单中选择 **Rollback**。也可以在 `apps/web` 目录运行 `npx wrangler rollback`。
 - `workers.dev` 适合首次验证；正式用途建议绑定 Custom Domain 或 Worker Route。
 
-Cloudflare 官方资料：[GitHub Actions 部署](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)、[Wrangler deploy](https://developers.cloudflare.com/workers/wrangler/commands/workers/#deploy)、[自定义域名](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)。
+Cloudflare 官方资料：[Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/)、[Git 仓库关联](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/)、[构建配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)、[自定义域名](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)。
 
 ### 部署故障排查
 
-- **鉴权失败：** 检查两个 GitHub Secrets；API Token 所属账号必须与 Account ID 一致。
-- **找不到 `dist/server/wrangler.json`：** 先运行 `npm run build`，并确保在 `apps/web` 目录执行 Wrangler。
-- **缺少 Linux Rolldown binding：** 保留工作流中显式安装 Linux binding 的步骤，用于规避 npm 可选依赖锁文件问题。
+- **GitHub 仓库不可见：** 在 GitHub 的 Cloudflare App 安装设置中允许访问 `huades/MultiPort-Proxy`。
+- **Worker 名称不匹配：** Cloudflare 项目名称必须为 `multiport-web`。
+- **找不到 `dist/server/wrangler.json`：** 确认 Root directory 是 `/`，Build command 成功执行了 `npm run build`。
+- **缺少 Linux Rolldown binding：** 使用表格中的完整 Build command，不要删掉显式安装 binding 的部分。
 - **Worker 可访问但自定义域名不可用：** 确认域名已在同一 Cloudflare 账号激活，且不存在冲突的 CNAME 记录。
 - **新版本部署后异常：** 在 Cloudflare 的 Worker 部署历史中回滚到已知可用版本。
-- **GitHub 显示 Resource not accessible：** 确认工作流使用仓库级 Actions，并且仓库允许第三方 Action；本流程需要 `cloudflare/wrangler-action@v3`。
-- **Secrets 看似存在但仍鉴权失败：** Secret 名称必须完全一致，值中不要包含引号或多余换行。
+- **只想手动发布：** 在 Worker 的 **Settings → Builds** 中关闭生产分支自动构建，需要时从 Builds 页面手动触发。
 
 ## 项目结构
 
@@ -175,7 +195,7 @@ MultiPort-Proxy/
 ├── apps/web/          # 转换网页和 Cloudflare Worker
 ├── packages/core/     # 解析、校验、稳定 ID 和导出逻辑
 ├── scripts/           # 交付文件打包
-└── .github/workflows/ # CI 与 Cloudflare 部署
+└── .github/workflows/ # GitHub CI（Cloudflare 由 Workers Builds 部署）
 ```
 
 Chrome 扩展源码只在 [huades/PortPilot](https://github.com/huades/PortPilot) 中维护，本仓库不包含扩展源码。

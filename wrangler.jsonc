@@ -2,8 +2,5 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "multiport-web",
   "compatibility_date": "2026-05-15",
-  "build": {
-    "command": "npm run build"
-  },
   "pages_build_output_dir": "apps/web/dist/pages"
 }

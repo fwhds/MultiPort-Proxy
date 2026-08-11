@@ -101,7 +101,7 @@ PortPilot connects only to the local HTTP/SOCKS listeners. It does not connect d
 
 The production build creates a real static Pages site at `apps/web/dist/pages`, including `index.html` and `404.html`. The committed `wrangler.jsonc` also declares that directory, so Cloudflare does not need automatic project configuration.
 
-The Wrangler configuration declares `npm run build` as its build command. This is required for repository imports: without it Cloudflare reports “No build command specified,” skips the build, and then cannot find `apps/web/dist/pages`.
+The verified static output is also committed to the repository. Therefore a newly imported Pages project can deploy even when Cloudflare reports “No build command specified” and skips the build. Pages configuration files do not support a `build` field.
 
 ### Fork and connect GitHub
 
@@ -120,7 +120,7 @@ Do not use `apps/web/dist/client`; it does not contain the prerendered `index.ht
 
 Cloudflare may assign a random Pages project name. That is supported and does not need to match the repository or the example name in `wrangler.jsonc`.
 
-If Cloudflare imports the settings from `wrangler.jsonc`, confirm the build log shows `npm run build` instead of **No build command specified**. For an existing project, open **Settings → Builds & deployments**, set the Build command manually to `npm run build`, save, and retry the latest deployment.
+For automatic source builds, open **Settings → Builds & deployments**, set the Build command to `npm run build`, save, and retry. If it is left blank, Cloudflare deploys the committed `apps/web/dist/pages` output instead.
 
 ### Direct upload with Wrangler
 
@@ -136,7 +136,7 @@ The deployed site uses a `*.pages.dev` address. Add a custom domain under the Pa
 ### Troubleshooting
 
 - **404 after a successful build:** set the output directory exactly to `apps/web/dist/pages`, then retry the deployment.
-- **No build command specified:** update to the latest commit or set the Pages Build command to `npm run build` manually.
+- **No build command specified:** this is supported after the static output was committed. Update to the latest commit; optionally set the Pages Build command to `npm run build` for automatic rebuilds.
 - **Repository is not listed:** allow the Cloudflare GitHub App to access the fork.
 - **Linux native binding missing:** keep the root build command; its prebuild step installs the required Linux bindings.
 - **Old content remains:** verify Cloudflare built the latest commit and clear the Pages build cache before retrying.

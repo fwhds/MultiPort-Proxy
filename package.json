@@ -6,12 +6,12 @@
   "scripts": {
     "dev": "npm run dev -w @multiport/web",
     "prebuild": "node scripts/ensure-linux-bindings.mjs",
-    "build": "npm run build -w @multiport/web",
+    "build": "npm run build:worker -w @multiport/web && node scripts/build-pages.mjs",
     "typecheck": "npm run typecheck -w @multiport/core && npm run typecheck -w @multiport/web",
     "test": "npm test -w @multiport/core && npm run test -w @multiport/web",
     "lint": "npm run lint -w @multiport/web",
     "deploy": "npm run deploy:cloudflare",
-    "deploy:cloudflare": "npm exec -w @multiport/web wrangler -- deploy --config ../../wrangler.jsonc",
-    "preview:cloudflare": "npm exec -w @multiport/web wrangler -- versions upload --config ../../wrangler.jsonc"
+    "deploy:cloudflare": "npm exec -w @multiport/web wrangler -- pages deploy dist/pages --project-name multiport-web",
+    "preview:cloudflare": "npm run deploy:cloudflare"
   }
 }

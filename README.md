@@ -2,8 +2,6 @@
 
 [简体中文](README.zh-CN.md) · [PortPilot Chrome extension](https://github.com/huades/PortPilot)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/huades/MultiPort-Proxy)
-
 MultiPort-Proxy is a privacy-first web converter for creating deterministic, one-node-per-port Mihomo configurations. Paste a Clash/Mihomo YAML file or supported share links, select the nodes, and export both a runnable `mihomo.yaml` and a credential-free `browser-profiles.json` for PortPilot.
 
 All parsing and generation happen locally in the browser. The site does not upload proxy credentials, fetch remote subscriptions, require an account, or control Mihomo/v2rayN processes.
@@ -99,109 +97,52 @@ Leave Mihomo running. If it exits immediately, inspect its console output for un
 
 PortPilot connects only to the local HTTP/SOCKS listeners. It does not connect directly to VLESS, VMess, or Trojan nodes; Mihomo performs that work.
 
-## Deploy to Cloudflare Workers
+## Deploy to Cloudflare Pages
 
-This project deploys to **Cloudflare Workers**, not the legacy static Pages upload flow. Vinext generates the Worker entry point, asset binding, and deployment configuration under `apps/web/dist/server/`.
+The production build creates a real static Pages site at `apps/web/dist/pages`, including `index.html` and `404.html`. The committed `wrangler.jsonc` also declares that directory, so Cloudflare does not need automatic project configuration.
 
-The committed root `wrangler.jsonc` lets Cloudflare recognize the Worker before the first build, so one-click deployment no longer enters automatic project configuration. It points to the generated `apps/web/dist/server/index.js` entry and `apps/web/dist/client` assets.
+### Fork and connect GitHub
 
-### One-click deployment
-
-Select the **Deploy to Cloudflare** button above, sign in to Cloudflare and GitHub, confirm the generated repository and Worker name, then deploy. Cloudflare detects the root `build` and `deploy` scripts and creates a new repository under your Git account so future pushes can continue deploying through Workers Builds.
-
-The source repository must remain public for the button to work. The deployment contains no proxy nodes or credentials; users provide configurations locally in their own browser.
-
-### Fork and deploy
-
-1. Select **Fork** on GitHub and create a copy under your account.
-2. In Cloudflare, import the fork under **Workers & Pages → Create application → Import a repository**.
-3. Keep the repository root as `/`; Cloudflare uses `npm run build`, `npm run deploy`, and the committed `wrangler.jsonc`.
-4. Deploy. Later pushes to your fork can trigger new Workers Builds automatically.
-
-### Connect the GitHub repository in Cloudflare (recommended)
-
-This method needs no GitHub Actions workflow and no Cloudflare token stored in GitHub. Cloudflare Workers Builds owns the build and deployment.
-
-1. Open **Workers & Pages → Create application** in Cloudflare.
-2. Select **Get started** next to **Import a repository**.
-3. Connect GitHub and authorize the **Cloudflare Workers and Pages** GitHub App.
-4. Select the private `huades/MultiPort-Proxy` repository.
-5. Set the Worker name to `multiport-web`; it must match the generated Wrangler configuration.
-
-For an existing `multiport-web` Worker, open **Settings → Builds → Connect** instead of creating a duplicate.
-
-#### Build settings
+1. Select **Fork** on GitHub.
+2. In Cloudflare, open **Workers & Pages → Create application → Pages → Connect to Git**.
+3. Select your fork and use these settings:
 
 | Setting | Value |
 |---|---|
 | Production branch | `main` |
 | Root directory | `/` |
-| Build command | `npm run typecheck && npm test && npm run build` |
-| Deploy command | `npm run deploy:cloudflare` |
-| Non-production deploy command | `npm run preview:cloudflare` |
+| Build command | `npm run build` |
+| Build output directory | `apps/web/dist/pages` |
 
-Keep the root at the repository root because `apps/web` depends on the `packages/core` workspace.
+Do not use `apps/web/dist/client`; it does not contain the prerendered `index.html` and will return 404. No environment variables are required.
 
-#### Save and deploy manually
-
-1. Select **Save and Deploy** for the first build.
-2. Later, open **Workers & Pages → multiport-web → Builds** and use **Retry build** or **Deploy** on the desired commit.
-3. Pushes to `main` build automatically by default. To make deployment manual-only, disable automatic production-branch builds under **Settings → Builds**.
-4. Use the resulting `*.workers.dev` address after the build succeeds.
-
-Optional Build watch paths:
-
-```text
-apps/web/**
-packages/core/**
-package.json
-package-lock.json
-```
-
-Non-production branches use `preview:cloudflare` and do not replace production.
-
-#### Verify the deployment
-
-Open the deployment URL and check language switching, demo parsing, port mappings, YAML/JSON previews, and downloads. View the active version and history under **Workers & Pages → multiport-web → Deployments**.
-
-### Local CLI fallback
+### Direct upload with Wrangler
 
 ```powershell
 npm install
 npm run build
 npx wrangler login
-npm run deploy:cloudflare
+npm run deploy
 ```
 
-Do not edit `dist/server/wrangler.json` directly; it is regenerated on every build. To connect your own hostname after deployment, open the Worker in Cloudflare and use its **Domains** tab to add a Custom Domain.
+The deployed site uses a `*.pages.dev` address. Add a custom domain under the Pages project's **Custom domains** section. For a failed release, select a known-good deployment from **Deployments** and roll back.
 
-### Domains and rollback
+### Troubleshooting
 
-- Custom domain: open **Workers & Pages → multiport-web → Settings → Domains & Routes → Add → Custom Domain**. The domain must be in the same Cloudflare account and must not have a conflicting CNAME.
-- Rollback: open **Workers & Pages → multiport-web → Deployments**, open the menu for a known-good version, and select **Rollback**. You can also run `npx wrangler rollback` from `apps/web`.
-- Use `workers.dev` for initial verification; Cloudflare recommends a Custom Domain or Worker Route for production traffic.
-
-Cloudflare references: [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/), [Git integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/), [Build configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), and [Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
-
-### Deployment troubleshooting
-
-- **Repository is not listed:** allow the Cloudflare GitHub App to access `huades/MultiPort-Proxy`.
-- **Worker name mismatch:** the Cloudflare project must be named `multiport-web`.
-- **Missing Worker entry:** keep Root directory as `/` and verify that the build produced `apps/web/dist/server/index.js`.
-- **Linux native binding missing:** do not skip the root `prebuild`; it installs the matching Rolldown and Lightning CSS bindings on Linux.
-- **Worker works but a custom domain does not:** confirm the domain is active in the same Cloudflare account and has no conflicting CNAME record.
-- **A deployment broke the site:** open the Worker deployment history in Cloudflare and roll back to a known-good version.
-- **Manual deployment only:** disable automatic production-branch builds under **Settings → Builds**, then trigger builds from the Builds page.
+- **404 after a successful build:** set the output directory exactly to `apps/web/dist/pages`, then retry the deployment.
+- **Repository is not listed:** allow the Cloudflare GitHub App to access the fork.
+- **Linux native binding missing:** keep the root build command; its prebuild step installs the required Linux bindings.
+- **Old content remains:** verify Cloudflare built the latest commit and clear the Pages build cache before retrying.
 
 ## Repository structure
 
 ```text
 MultiPort-Proxy/
 ├── .github/workflows/ # GitHub CI checks
-├── apps/web/          # converter UI and Cloudflare Worker
+├── apps/web/          # converter UI and static Pages output
 ├── packages/core/     # parsers, validation, stable IDs, exporters
 ├── scripts/           # cross-platform build helpers
-└── wrangler.jsonc     # committed Cloudflare Worker configuration
+└── wrangler.jsonc     # committed Cloudflare Pages configuration
 ```
 
 Chrome extension source is maintained exclusively in [huades/PortPilot](https://github.com/huades/PortPilot).

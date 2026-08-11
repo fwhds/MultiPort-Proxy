@@ -10,8 +10,19 @@ test("parses Clash YAML, deduplicates names, and generates stable ports", () => 
   assert.deepEqual(result.nodes.map(n => n.name), ["Demo", "Demo (2)"]);
   const generated = generateBundle(result.nodes, { startPort: 42000, listenerType: "mixed" });
   assert.match(generated.mihomoYaml, /port: 42001/);
-  assert.deepEqual(generated.extensionManifest.profiles.map(p => p.port), [42000, 42001]);
+  assert.deepEqual(generated.extensionManifest.profiles.map(p => p.port), [42000, 42000, 42001, 42001]);
+  assert.deepEqual(generated.extensionManifest.profiles.map(p => p.scheme), ["http", "socks5", "http", "socks5"]);
   assert.doesNotThrow(() => validateExtensionManifest(generated.extensionManifest));
+});
+
+test("preserves the base config and creates a dialer-proxy chain", () => {
+  const source = `${sample}\ndns:\n  enable: true\nproxy-groups:\n  - name: Select\n    type: select\n    proxies: [Demo, Demo (2)]\nrules:\n  - MATCH,Select`;
+  const parsed = parseClashYaml(source);
+  const generated = generateBundle(parsed.nodes, { baseConfig: parsed.baseConfig, mode: "dialer-proxy", jumpNodeId: parsed.nodes[0].id, exitNodeId: parsed.nodes[1].id });
+  assert.match(generated.mihomoYaml, /dialer-proxy: Demo/);
+  assert.match(generated.mihomoYaml, /enable: true/);
+  assert.match(generated.mihomoYaml, /MATCH,Select/);
+  assert.equal(generated.extensionManifest.profiles.length, 0);
 });
 
 test("parses URI nodes and reports malformed input", () => {

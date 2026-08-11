@@ -17,6 +17,7 @@ export interface ParseIssue {
 export interface ParseResult {
   nodes: ParsedNode[];
   issues: ParseIssue[];
+  baseConfig?: Record<string, unknown>;
 }
 
 export interface ExtensionProfile {
@@ -38,6 +39,10 @@ export interface GenerateOptions {
   startPort?: number;
   host?: string;
   listenerType?: ListenerType;
+  baseConfig?: Record<string, unknown>;
+  mode?: "listeners" | "dialer-proxy";
+  jumpNodeId?: string;
+  exitNodeId?: string;
 }
 
 export interface GeneratedBundle {

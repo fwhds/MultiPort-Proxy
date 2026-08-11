@@ -40,7 +40,7 @@ export function parseClashYaml(source: string): ParseResult {
       try { nodes.push(nodeFromRaw(asObject(item), index)); }
       catch (error) { issues.push({ message: error instanceof Error ? error.message : String(error) }); }
     });
-    return { nodes: dedupeNames(nodes), issues };
+    return { nodes: dedupeNames(nodes), issues, baseConfig: root };
   } catch (error) {
     return { nodes: [], issues: [{ message: `Invalid YAML: ${error instanceof Error ? error.message : String(error)}` }] };
   }
@@ -109,6 +109,11 @@ export function parseShareLinks(source: string): ParseResult {
   return { nodes: dedupeNames(nodes), issues };
 }
 
+export function parseManualNode(source: string): ParsedNode {
+  const value = parse(source);
+  return nodeFromRaw(asObject(value), 0);
+}
+
 function dedupeNames(nodes: ParsedNode[]): ParsedNode[] {
   const seen = new Map<string, number>();
   return nodes.map(node => {
@@ -124,6 +129,7 @@ export function generateBundle(nodes: ParsedNode[], options: GenerateOptions = {
   const startPort = options.startPort ?? 42000;
   const host = options.host ?? "127.0.0.1";
   const listenerType = options.listenerType ?? "mixed";
+  const mode = options.mode ?? "listeners";
   if (!Number.isInteger(startPort) || startPort < 1 || startPort + Math.max(nodes.length - 1, 0) > 65535) throw new Error("Generated port range must stay between 1 and 65535");
   if (!nodes.length) throw new Error("Select at least one node");
 
@@ -134,11 +140,40 @@ export function generateBundle(nodes: ParsedNode[], options: GenerateOptions = {
     listen: host,
     proxy: node.name
   }));
-  const config = { "allow-lan": host !== "127.0.0.1" && host !== "localhost", mode: "rule", "log-level": "info", proxies: nodes.map(node => node.raw), listeners, rules: ["MATCH,DIRECT"] };
+  const base = options.baseConfig ? { ...options.baseConfig } : {};
+  let outputNodes = nodes.map(node => ({ ...node.raw }));
+  let outputListeners: unknown[] | undefined = listeners;
+  if (mode === "dialer-proxy") {
+    const jump = nodes.find(node => node.id === options.jumpNodeId);
+    const exit = nodes.find(node => node.id === options.exitNodeId);
+    if (!jump || !exit) throw new Error("Select both a jump node and an exit node");
+    if (jump.id === exit.id) throw new Error("Jump and exit nodes must be different");
+    outputNodes = outputNodes.map(raw => raw.name === exit.name ? { ...raw, "dialer-proxy": jump.name } : raw);
+    outputListeners = undefined;
+  }
+  const config: Record<string, unknown> = {
+    ...base,
+    "allow-lan": host !== "127.0.0.1" && host !== "localhost",
+    mode: base.mode ?? "rule",
+    "log-level": base["log-level"] ?? "info",
+    proxies: outputNodes
+  };
+  if (mode === "listeners") config.listeners = outputListeners;
+  if (!Array.isArray(config.rules)) config.rules = ["MATCH,DIRECT"];
+  else config.rules = [...config.rules];
+  if (mode === "dialer-proxy") delete config.listeners;
+  const profiles = mode === "listeners" ? nodes.flatMap((node, index) => {
+    const common = { host, port: startPort + index, tags: [node.type] };
+    if (listenerType === "mixed") return [
+      { id: `${node.id}-http`, name: `${node.name} [HTTP]`, scheme: "http" as const, ...common },
+      { id: `${node.id}-socks5`, name: `${node.name} [SOCKS5]`, scheme: "socks5" as const, ...common }
+    ];
+    return [{ id: `${node.id}-${listenerType}`, name: node.name, scheme: listenerType === "socks" ? "socks5" as const : "http" as const, ...common }];
+  }) : [];
   const extensionManifest: ExtensionManifest = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    profiles: nodes.map((node, index) => ({ id: node.id, name: node.name, scheme: listenerType === "socks" ? "socks5" : "http", host, port: startPort + index, tags: [node.type] }))
+    profiles
   };
   return { mihomoYaml: stringify(config, { lineWidth: 0 }), extensionManifest };
 }

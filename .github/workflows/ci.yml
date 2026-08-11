@@ -10,6 +10,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
+      # Work around npm/cli#4828 when a lockfile is generated on another OS.
+      - run: npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-gnu@1.0.1
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

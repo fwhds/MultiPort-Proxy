@@ -3,20 +3,37 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["apps/web/**", "packages/core/**", "package*.json"]
+    paths:
+      - "apps/web/**"
+      - "packages/core/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/cloudflare.yml"
 jobs:
   deploy:
+    concurrency:
+      group: cloudflare-production
+      cancel-in-progress: true
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
-      - run: npm run build -w @multiport/web
-      - name: Deploy
-        run: npx wrangler deploy
-        working-directory: apps/web
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Work around npm/cli#4828 when a lockfile is generated on another OS.
+      - run: npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-gnu@1.0.1
+      - name: Validate
+        run: |
+          npm run typecheck
+          npm test
+      - name: Build Worker
+        run: npm run build
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/web
+          command: deploy --config dist/server/wrangler.json

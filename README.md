@@ -103,6 +103,8 @@ PortPilot connects only to the local HTTP/SOCKS listeners. It does not connect d
 
 This project deploys to **Cloudflare Workers**, not the legacy static Pages upload flow. Vinext generates the Worker entry point, asset binding, and deployment configuration under `apps/web/dist/server/`.
 
+The committed root `wrangler.jsonc` lets Cloudflare recognize the Worker before the first build, so one-click deployment no longer enters automatic project configuration. It points to the generated `apps/web/dist/server/index.js` entry and `apps/web/dist/client` assets.
+
 ### One-click deployment
 
 Select the **Deploy to Cloudflare** button above, sign in to Cloudflare and GitHub, confirm the generated repository and Worker name, then deploy. Cloudflare detects the root `build` and `deploy` scripts and creates a new repository under your Git account so future pushes can continue deploying through Workers Builds.
@@ -178,7 +180,7 @@ Cloudflare references: [Workers Builds](https://developers.cloudflare.com/worker
 
 - **Repository is not listed:** allow the Cloudflare GitHub App to access `huades/MultiPort-Proxy`.
 - **Worker name mismatch:** the Cloudflare project must be named `multiport-web`.
-- **Missing `dist/server/wrangler.json`:** keep Root directory as `/` and verify that the Build command completed.
+- **Missing Worker entry:** keep Root directory as `/` and verify that the build produced `apps/web/dist/server/index.js`.
 - **Linux native binding missing:** do not skip the root `prebuild`; it installs the matching Rolldown and Lightning CSS bindings on Linux.
 - **Worker works but a custom domain does not:** confirm the domain is active in the same Cloudflare account and has no conflicting CNAME record.
 - **A deployment broke the site:** open the Worker deployment history in Cloudflare and roll back to a known-good version.

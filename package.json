@@ -11,7 +11,7 @@
     "test": "npm test -w @multiport/core",
     "package:deploy": "node scripts/package-deliverables.mjs",
     "deploy": "npm run deploy:cloudflare",
-    "deploy:cloudflare": "npm exec -w @multiport/web wrangler -- deploy --config dist/server/wrangler.json",
-    "preview:cloudflare": "npm exec -w @multiport/web wrangler -- versions upload --config dist/server/wrangler.json"
+    "deploy:cloudflare": "npm exec -w @multiport/web wrangler -- deploy --config ../../wrangler.jsonc",
+    "preview:cloudflare": "npm exec -w @multiport/web wrangler -- versions upload --config ../../wrangler.jsonc"
   }
 }

@@ -103,6 +103,8 @@ PortPilot 只连接本机 HTTP/SOCKS 监听端口，不直接连接 VLESS、VMes
 
 本项目实际部署目标是 **Cloudflare Workers**，不是传统的 Pages 静态目录上传。Vinext 会在 `apps/web/dist/server/` 中生成 Worker 入口、静态资源绑定和部署配置。
 
+仓库根目录包含固定的 `wrangler.jsonc`，Cloudflare 可以在构建前识别 Worker，因此一键部署不会再进入“自动项目配置”流程。该文件指向构建生成的 `apps/web/dist/server/index.js` 和 `apps/web/dist/client`。
+
 ### 一键部署
 
 点击顶部 **Deploy to Cloudflare** 按钮，登录 Cloudflare 与 GitHub，确认自动生成的仓库名和 Worker 名称后部署。Cloudflare 会识别根目录的 `build` 与 `deploy` 命令，并在你的 Git 账号下创建一个新仓库；之后推送代码即可继续通过 Workers Builds 发布。
@@ -182,7 +184,7 @@ Cloudflare 官方资料：[Workers Builds](https://developers.cloudflare.com/wor
 
 - **GitHub 仓库不可见：** 在 GitHub 的 Cloudflare App 安装设置中允许访问 `huades/MultiPort-Proxy`。
 - **Worker 名称不匹配：** Cloudflare 项目名称必须为 `multiport-web`。
-- **找不到 `dist/server/wrangler.json`：** 确认 Root directory 是 `/`，Build command 成功执行了 `npm run build`。
+- **找不到 Worker 入口：** 确认 Root directory 是 `/`，Build command 成功生成了 `apps/web/dist/server/index.js`。
 - **缺少 Linux 原生 binding：** 不要跳过根目录的 `prebuild`；它会在 Linux 上自动安装匹配的 Rolldown 与 Lightning CSS binding。
 - **Worker 可访问但自定义域名不可用：** 确认域名已在同一 Cloudflare 账号激活，且不存在冲突的 CNAME 记录。
 - **新版本部署后异常：** 在 Cloudflare 的 Worker 部署历史中回滚到已知可用版本。

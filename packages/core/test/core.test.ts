@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateBundle, parseClashYaml, parseShareLinks, validateExtensionManifest } from "../src/index";
+import { parse as parseYaml } from "yaml";
+import { generateBundle, parseClashYaml, parseShareLinks, validateExtensionManifest, validateNodesForExport } from "../src/index";
 
 const sample = `proxies:\n  - name: Demo\n    type: vless\n    server: example.com\n    port: 443\n    uuid: 00000000-0000-0000-0000-000000000001\n  - name: Demo\n    type: trojan\n    server: 192.0.2.10\n    port: 443\n    password: redacted`;
 
@@ -29,6 +30,62 @@ test("parses URI nodes and reports malformed input", () => {
   const result = parseShareLinks("vless://id@example.com:443?security=tls#Alpha\nnot-a-url");
   assert.equal(result.nodes[0].name, "Alpha");
   assert.equal(result.issues[0].line, 2);
+});
+
+test("preserves every Clash proxy field when generating listeners", () => {
+  const source = `proxies:
+  - name: Reality node
+    type: vless
+    server: example.com
+    port: 443
+    uuid: 00000000-0000-0000-0000-000000000001
+    tls: true
+    flow: xtls-rprx-vision
+    client-fingerprint: chrome
+    servername: www.example.com
+    reality-opts:
+      public-key: public-key-value
+      short-id: 0123456789abcdef
+    x-future-option:
+      nested: preserved
+`;
+  const parsed = parseClashYaml(source);
+  const originalProxy = (parseYaml(source) as { proxies: unknown[] }).proxies[0];
+  assert.deepEqual(parsed.nodes[0].raw, originalProxy);
+
+  const generated = parseYaml(generateBundle(parsed.nodes, { listenerType: "socks" }).mihomoYaml) as { proxies: unknown[] };
+  assert.deepEqual(generated.proxies[0], originalProxy);
+});
+
+test("maps complete Reality URI parameters to Mihomo fields", () => {
+  const result = parseShareLinks("vless://00000000-0000-0000-0000-000000000001@example.com:443?security=reality&pbk=public-key-value&sid=0123456789abcdef&flow=xtls-rprx-vision&fp=chrome&sni=www.example.com#Reality");
+  assert.equal(result.issues.length, 0);
+  assert.deepEqual(result.nodes[0].raw, {
+    name: "Reality",
+    type: "vless",
+    server: "example.com",
+    port: 443,
+    uuid: "00000000-0000-0000-0000-000000000001",
+    tls: true,
+    servername: "www.example.com",
+    "client-fingerprint": "chrome",
+    flow: "xtls-rprx-vision",
+    "reality-opts": {
+      "public-key": "public-key-value",
+      "short-id": "0123456789abcdef"
+    }
+  });
+  assert.deepEqual(validateNodesForExport(result.nodes), []);
+  assert.doesNotThrow(() => generateBundle(result.nodes));
+});
+
+test("reports and blocks incomplete Reality links before export", () => {
+  const result = parseShareLinks("vless://00000000-0000-0000-0000-000000000001@example.com:443?security=reality&fp=chrome&sni=www.example.com#Incomplete");
+  assert.equal(result.nodes.length, 1);
+  assert.equal(result.issues.length, 2);
+  assert.match(result.issues[0].message, /missing pbk/);
+  assert.match(result.issues[1].message, /missing sid/);
+  assert.throws(() => generateBundle(result.nodes), /Cannot export:.*missing pbk.*missing sid/);
 });
 
 test("rejects overflowing generated ports", () => {

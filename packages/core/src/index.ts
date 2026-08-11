@@ -27,7 +27,37 @@ function nodeFromRaw(raw: Record<string, unknown>, index: number): ParsedNode {
     throw new Error(`Node “${name}” has an invalid port`);
   }
   const fingerprint = stringify({ ...raw, name: undefined });
-  return { id: `node-${stableHash(fingerprint)}`, name, type, raw: { ...raw, name, type, port: Number(raw.port) } };
+  // Keep Clash/Mihomo proxy objects semantically lossless. In particular, do
+  // not rebuild them from a known-field allowlist: newer Mihomo transports and
+  // protocol options must survive a parse/generate round trip unchanged.
+  return { id: `node-${stableHash(fingerprint)}`, name, type, raw: { ...raw } };
+}
+
+function nonEmptyString(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function validateNodeForExport(node: ParsedNode): ParseIssue[] {
+  const issues: ParseIssue[] = [];
+  const reality = node.raw["reality-opts"];
+  if (reality !== undefined) {
+    if (!reality || typeof reality !== "object" || Array.isArray(reality)) {
+      issues.push({ message: `Node "${node.name}" has invalid reality-opts` });
+    } else {
+      const options = reality as Record<string, unknown>;
+      if (!nonEmptyString(options["public-key"])) {
+        issues.push({ message: `Node "${node.name}" uses Reality but is missing pbk (reality-opts.public-key)` });
+      }
+      if (!nonEmptyString(options["short-id"])) {
+        issues.push({ message: `Node "${node.name}" uses Reality but is missing sid (reality-opts.short-id)` });
+      }
+    }
+  }
+  return issues;
+}
+
+export function validateNodesForExport(nodes: ParsedNode[]): ParseIssue[] {
+  return nodes.flatMap(validateNodeForExport);
 }
 
 export function parseClashYaml(source: string): ParseResult {
@@ -40,7 +70,9 @@ export function parseClashYaml(source: string): ParseResult {
       try { nodes.push(nodeFromRaw(asObject(item), index)); }
       catch (error) { issues.push({ message: error instanceof Error ? error.message : String(error) }); }
     });
-    return { nodes: dedupeNames(nodes), issues, baseConfig: root };
+    const parsedNodes = dedupeNames(nodes);
+    issues.push(...validateNodesForExport(parsedNodes));
+    return { nodes: parsedNodes, issues, baseConfig: root };
   } catch (error) {
     return { nodes: [], issues: [{ message: `Invalid YAML: ${error instanceof Error ? error.message : String(error)}` }] };
   }
@@ -73,7 +105,8 @@ function parseUrlNode(line: string): Record<string, unknown> {
     server: url.hostname,
     port: Number(url.port || (type === "https" ? 443 : 80))
   };
-  if (["vless", "trojan"].includes(type)) raw.uuid = decodeURIComponent(url.username);
+  if (type === "vless") raw.uuid = decodeURIComponent(url.username);
+  if (type === "trojan") raw.password = decodeURIComponent(url.username);
   if (["http", "https", "socks", "socks5"].includes(type)) {
     if (url.username) raw.username = decodeURIComponent(url.username);
     if (url.password) raw.password = decodeURIComponent(url.password);
@@ -84,11 +117,20 @@ function parseUrlNode(line: string): Record<string, unknown> {
     const [cipher, password] = user.split(":", 2);
     raw.cipher = cipher; raw.password = password;
   }
-  if (q.get("security") === "tls" || q.get("security") === "reality") raw.tls = true;
+  const security = q.get("security")?.toLowerCase();
+  if (security === "tls" || security === "reality") raw.tls = true;
   if (q.get("sni")) raw.servername = q.get("sni");
   if (q.get("type")) raw.network = q.get("type");
   if (q.get("fp")) raw["client-fingerprint"] = q.get("fp");
   if (q.get("flow")) raw.flow = q.get("flow");
+  if (security === "reality") {
+    // Always create reality-opts, even when required URI parameters are
+    // missing, so validation can report the incomplete link before export.
+    raw["reality-opts"] = {
+      "public-key": q.get("pbk") || undefined,
+      "short-id": q.get("sid") || undefined
+    };
+  }
   if (q.get("type") === "ws") raw["ws-opts"] = { path: q.get("path") || "/", headers: q.get("host") ? { Host: q.get("host") } : undefined };
   return raw;
 }
@@ -101,7 +143,9 @@ export function parseShareLinks(source: string): ParseResult {
     if (!line || line.startsWith("#")) return;
     try {
       const raw = line.startsWith("vmess://") ? parseVmess(line) : parseUrlNode(line);
-      nodes.push(nodeFromRaw(raw, index));
+      const node = nodeFromRaw(raw, index);
+      nodes.push(node);
+      validateNodeForExport(node).forEach(issue => issues.push({ ...issue, line: index + 1 }));
     } catch (error) {
       issues.push({ line: index + 1, message: error instanceof Error ? error.message : String(error) });
     }
@@ -132,6 +176,8 @@ export function generateBundle(nodes: ParsedNode[], options: GenerateOptions = {
   const mode = options.mode ?? "listeners";
   if (!Number.isInteger(startPort) || startPort < 1 || startPort + Math.max(nodes.length - 1, 0) > 65535) throw new Error("Generated port range must stay between 1 and 65535");
   if (!nodes.length) throw new Error("Select at least one node");
+  const validationIssues = validateNodesForExport(nodes);
+  if (validationIssues.length) throw new Error(`Cannot export: ${validationIssues.map(issue => issue.message).join("; ")}`);
 
   const listeners = nodes.map((node, index) => ({
     name: `in-${node.id}`,

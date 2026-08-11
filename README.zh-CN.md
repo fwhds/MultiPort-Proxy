@@ -1,121 +1,76 @@
-# MultiPort-Proxy 多端口代理转换器
+# MultiPort-Proxy
 
 [English](README.md) · [PortPilot Chrome 扩展](https://github.com/huades/PortPilot)
 
-MultiPort-Proxy 是一个纯浏览器本地运行的中英文转换工具。它将 Clash/Mihomo YAML 或常见分享链接转换为“一节点一端口”的 Mihomo 配置，同时生成可导入 PortPilot 的 HTTP/SOCKS5 本地代理档案。
+MultiPort-Proxy 在浏览器本地把 Clash/Mihomo YAML 或节点分享链接转换为“一节点一端口”的 Mihomo 配置，并生成 PortPilot 可导入的本地代理档案。网页不会上传节点信息。
 
-网页不会上传节点、抓取远程订阅、要求账号，也不会启动或控制 Mihomo/v2rayN。
+## 使用方法
 
-## 功能
+### 1. 输入节点
 
-- 解析 Clash/Mihomo YAML。
-- 解析 `vless://`、`vmess://`、`trojan://`、`ss://`、`socks://`、`http://`、`https://` 多行链接。
-- 为每个节点生成独立的 `mixed`、`http` 或 `socks` listener。
-- `mixed` listener 同时导出 HTTP 与 SOCKS5 PortPilot 档案。
-- 保留原配置的 DNS、代理组和规则，支持 `dialer-proxy` 链式代理。
-- 支持节点选择、手工 YAML 节点、稳定 ID 与稳定端口映射。
-- 支持中英文切换、可读 YAML/JSON 预览、复制、单独下载和 ZIP 下载。
-- 支持明亮/深色主题切换并记住本机选择。
+选择一种输入方式：
 
-## 本地运行
+- **Clash YAML：** 粘贴或上传包含 `proxies:` 节点数组的完整配置。
+- **节点分享链接：** 每行输入一个 `vless://`、`vmess://`、`trojan://`、`ss://`、`socks://` 或 `http(s)://` 链接。
 
-需要 Node.js 22+ 和 npm 10+：
+本项目不抓取远程订阅 URL。请粘贴订阅文件内容或从 v2rayN 复制出的节点分享链接。
 
-```powershell
-git clone https://github.com/huades/MultiPort-Proxy.git
-cd MultiPort-Proxy
-npm install
-npm run dev
-```
+### 2. 检查端口映射
 
-常用检查：
+1. 点击 **解析节点**。
+2. 勾选需要使用的节点。
+3. 设置起始端口和监听地址。默认值为 `42000`、`127.0.0.1`。
+4. 默认 listener 为 **SOCKS5**；也可选择 HTTP 或 mixed。
+5. 确认每个节点对应一个不同的本机端口。
 
-```powershell
-npm run typecheck
-npm run lint
-npm test
-npm run build
-```
+### 3. 导出 Mihomo YAML
 
-## 使用教程
-
-1. 从 v2rayN 复制分享链接，或准备本地 Clash/Mihomo YAML。
-2. 在网页选择 **Clash YAML** 或 **分享链接**，粘贴/上传内容并点击 **解析节点**。
-3. 选择节点，设置起始端口、监听地址和 listener 类型。默认使用 `42000`、`127.0.0.1`、SOCKS5（`socks`）。
-4. 在网页中检查完整的 `mihomo.yaml` 和 `browser-profiles.json` 预览。
-5. 下载文件或 ZIP。
-6. 启动 Mihomo：
+预览并下载 `mihomo.yaml`，然后运行：
 
 ```powershell
 mihomo.exe -f .\mihomo.yaml
 ```
 
-7. 在 PortPilot 中导入 `browser-profiles.json`，选择 HTTP 或 SOCKS5 档案。
+该文件是当前节点格式的配置快照。请保留原始 YAML 或分享链接；Mihomo 或节点格式变化后，应使用原始内容重新生成。
 
-PortPilot 只连接 Mihomo 创建的本机 HTTP/SOCKS 端口，不会直接连接 VLESS、VMess 或 Trojan 节点。
+### 4. 导出 PortPilot JSON
+
+1. 下载 `browser-profiles.json`。
+2. 在 Chrome 开发者模式加载 [PortPilot](https://github.com/huades/PortPilot)。
+3. 在 PortPilot 中导入 JSON 并选择代理档案。
+4. 不再使用代理时选择 **直连**。
+
+JSON 只包含 `127.0.0.1` 本地端口档案，不包含上游节点 UUID、密码或服务器地址。Mihomo 端口变化后需要重新导出并导入。
+
+网页也支持复制单个文件、分别下载或下载同时包含 YAML 与 JSON 的 ZIP。顶部按钮可切换明亮/深色主题和中英文。
 
 ## 部署到 Cloudflare Pages
 
-`npm run build` 会在 `apps/web/dist/pages` 生成真正的静态 Pages 站点，其中包含 `index.html` 和 `404.html`。根目录 `wrangler.jsonc` 已声明该输出目录。
+### Fork 后关联部署
 
-仓库也会提交已经验证的静态产物。因此，即使新建 Pages 项目显示 **No build command specified** 并跳过构建，仍可直接发布仓库中的 `apps/web/dist/pages`。Pages 配置文件本身不支持 `build` 字段。
-
-### Fork 并关联 Cloudflare
-
-1. 在 GitHub 点击 **Fork**，复制项目到自己的账号。
-2. 打开 Cloudflare：**Workers & Pages → Create application → Pages → Connect to Git**。
-3. 选择自己的 Fork。
-4. 使用以下配置：
+1. 在 GitHub 点击 **Fork**，复制本项目。
+2. 进入 Cloudflare：**Workers & Pages → Create application → Pages → Connect to Git**。
+3. 选择自己的 Fork 和 `main` 分支。
+4. 使用以下设置：
 
 | 设置 | 值 |
 |---|---|
-| Production branch | `main` |
 | Root directory | `/` |
-| Build command | `npm run build` |
+| Build command | 留空，或填写 `npm run build` |
 | Build output directory | `apps/web/dist/pages` |
 
-不需要环境变量。不要填写 `apps/web/dist/client`，该目录没有预渲染的 `index.html`，部署后会显示 404。
+仓库已提交可直接部署的静态文件，因此 Build command 留空也可以部署。填写 `npm run build` 后，Cloudflare 会在每次部署时重新生成静态文件。
 
-Cloudflare 自动生成随机 Pages 项目名属于正常情况，不要求它与仓库名或 `wrangler.jsonc` 中的示例名称一致。
+随机生成的 Pages 项目名可以直接使用，不需要改成仓库名，也不需要环境变量。
 
-如果希望每次推送都重新生成网页，可进入 **Settings → Builds & deployments**，手工把 Build command 设置为 `npm run build`。如果留空，Cloudflare 会直接发布仓库中已经提交的 `apps/web/dist/pages`。
+### 部署后显示 404
 
-### Wrangler 手工部署
+确认：
 
-```powershell
-npm install
-npm run build
-npx wrangler login
-npx wrangler pages deploy apps/web/dist/pages --project-name <你的-Pages-项目名>
-```
+- Fork 已同步到上游最新提交。
+- Build output directory 完全等于 `apps/web/dist/pages`。
+- 没有填写 `apps/web/dist/client`。
+- 使用的是 Pages 项目，而不是 Worker 项目。
+- 修改设置后重新部署最新提交，而不是只刷新旧版本。
 
-部署成功后会获得 `*.pages.dev` 地址。自定义域名在 Pages 项目的 **Custom domains** 中设置。
-
-### 404 排查
-
-- 确认使用的是 Cloudflare **Pages** 项目。
-- Build output directory 必须是 `apps/web/dist/pages`。
-- 确认构建日志中出现 `Cloudflare Pages output`。
-- **No build command specified** 在最新提交中可以正常部署；也可以在 Pages 设置中填写 `npm run build`，启用自动重新构建。
-- 清除 Pages 构建缓存，再部署最新的 `main` 提交。
-- 如果曾填写 `apps/web/dist/client`，修改后重新部署，不能只刷新旧版本。
-
-## 项目结构
-
-```text
-MultiPort-Proxy/
-├── .github/workflows/ # CI：类型、规范、测试和 Pages 构建检查
-├── apps/web/          # React/Vinext 转换网页
-├── packages/core/     # 解析、稳定 ID、端口映射和导出逻辑
-├── scripts/           # Linux binding 与 Pages 预渲染脚本
-└── wrangler.jsonc     # Cloudflare Pages 输出配置
-```
-
-Chrome 扩展源码由独立的 [huades/PortPilot](https://github.com/huades/PortPilot) 仓库管理。
-
-## 隐私与限制
-
-- `mihomo.yaml` 含上游节点凭据，应按敏感文件保存。
-- `browser-profiles.json` 只含本地端口档案。
-- 首版不抓取远程订阅、不提供账号系统、不自动控制 Mihomo/v2rayN。
-- 服务商自定义字段可能需要手工调整。
+如果构建日志显示 **No build command specified**，在最新版中属于正常情况：Cloudflare 会直接发布仓库中已经提交的静态文件。

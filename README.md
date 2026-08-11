@@ -2,166 +2,75 @@
 
 [简体中文](README.zh-CN.md) · [PortPilot Chrome extension](https://github.com/huades/PortPilot)
 
-MultiPort-Proxy is a privacy-first web converter for creating deterministic, one-node-per-port Mihomo configurations. Paste a Clash/Mihomo YAML file or supported share links, select the nodes, and export both a runnable `mihomo.yaml` and a credential-free `browser-profiles.json` for PortPilot.
+MultiPort-Proxy locally converts Clash/Mihomo YAML or node share links into one-node-per-port Mihomo listeners and PortPilot browser profiles. Node data never leaves the browser.
 
-All parsing and generation happen locally in the browser. The site does not upload proxy credentials, fetch remote subscriptions, require an account, or control Mihomo/v2rayN processes.
+## How to use
 
-## How it works
+### 1. Enter nodes
 
-```text
-Clash YAML / share links
-          │
-          ▼
- MultiPort-Proxy (browser-only parsing)
-          │
-          ├── mihomo.yaml ─────────────► Mihomo ─► 127.0.0.1:42000, 42001, ...
-          │
-          └── browser-profiles.json ───► PortPilot ─► Chrome proxy switching
-```
+Choose one input type:
 
-The same nodes and start port always produce stable profile IDs and port mappings.
+- **Clash YAML:** paste or upload a complete configuration containing a `proxies:` array.
+- **Node share links:** enter one `vless://`, `vmess://`, `trojan://`, `ss://`, `socks://`, or `http(s)://` link per line.
 
-## Features
+Remote subscription URLs are not fetched. Paste the subscription file contents or node share links copied from v2rayN.
 
-- Parses Clash/Mihomo YAML and multiline `vless://`, `vmess://`, `trojan://`, `ss://`, `socks://`, `http://`, and `https://` links.
-- Creates one independent Mihomo `mixed`, `http`, or `socks` listener per selected node. A `mixed` listener exports both HTTP and SOCKS5 PortPilot profiles on the same local port.
-- Preserves top-level DNS, proxy groups, and rules, and can generate a jump B → exit A `dialer-proxy` chain.
-- Supports adding a node manually from a single-node YAML object.
-- Defaults to `127.0.0.1`, port `42000`, and SOCKS5 (`socks`) listeners.
-- Exports individual YAML/JSON files or one ZIP bundle.
-- Supports Chinese/English and light/dark theme switching in the web interface.
-- Keeps upstream UUIDs, passwords, and server details out of the PortPilot JSON.
+### 2. Review the port mapping
 
-## Quick start
+1. Select **Parse nodes**.
+2. Keep the required nodes selected.
+3. Set the start port and listen address. The defaults are `42000` and `127.0.0.1`.
+4. The default listener is **SOCKS5**; HTTP and mixed are also available.
+5. Confirm that every selected node has a different local port.
 
-Requirements: Node.js 22+, npm 10+, and Mihomo for running the generated configuration. PortPilot is optional and is only needed for switching proxies in Chrome.
+### 3. Export the Mihomo YAML
 
-```powershell
-git clone https://github.com/huades/MultiPort-Proxy.git
-cd MultiPort-Proxy
-npm install
-npm run dev
-```
-
-Open the local URL printed by Vite, normally `http://localhost:3000`.
-
-Useful commands:
-
-```powershell
-npm run typecheck     # TypeScript checks
-npm test              # core parser/exporter tests
-npm run build         # production Worker build
-npm run lint          # ESLint checks
-```
-
-## User guide
-
-### 1. Prepare node input
-
-Use either:
-
-- a local Clash/Mihomo YAML file; or
-- share links copied/exported from v2rayN, one link per line.
-
-In v2rayN, select the required servers and use the command that copies selected server share links to the clipboard. Menu wording can vary between versions. Do not paste a remote subscription URL: the MVP intentionally does not fetch subscriptions.
-
-### 2. Parse and map nodes
-
-1. Choose **Clash YAML** or **Share links**.
-2. Paste the content, upload a local `.yaml`, `.yml`, or `.txt` file, then select **Parse nodes**.
-3. Keep the nodes you want enabled.
-4. Set the start port, listen host, and listener type. The default local settings are `42000`, `127.0.0.1`, and SOCKS5 (`socks`).
-5. Confirm that each selected node receives a different local port.
-
-With `mixed`, each node appears twice in `browser-profiles.json`: one `[HTTP]` profile and one `[SOCKS5]` profile. They intentionally share the same port because a Mihomo mixed listener accepts both protocols.
-
-Keep `127.0.0.1` unless you deliberately want other LAN devices to reach the listeners. Exposing listeners to the LAN may create an unauthenticated proxy endpoint.
-
-### 3. Export and start Mihomo
-
-Download `mihomo.yaml`, or use the ZIP download. Then start Mihomo from the directory containing the file:
+Review and download `mihomo.yaml`, then run:
 
 ```powershell
 mihomo.exe -f .\mihomo.yaml
 ```
 
-Leave Mihomo running. If it exits immediately, inspect its console output for unsupported node options, occupied ports, or malformed input.
+This file is a snapshot of the current node format. Keep the original YAML or share links and regenerate the file if Mihomo or node formats change.
 
-### 4. Use the profiles in Chrome
+### 4. Export the PortPilot JSON
 
 1. Download `browser-profiles.json`.
-2. Install/load the separate [PortPilot extension](https://github.com/huades/PortPilot) in Chrome developer mode.
-3. Open PortPilot, import the JSON, and select a profile.
-4. Run its connectivity or exit-IP check.
-5. Select **Direct** in PortPilot to restore Chrome's normal network configuration.
+2. Load [PortPilot](https://github.com/huades/PortPilot) in Chrome developer mode.
+3. Import the JSON and select a proxy profile.
+4. Select **Direct** when the proxy is no longer needed.
 
-PortPilot connects only to the local HTTP/SOCKS listeners. It does not connect directly to VLESS, VMess, or Trojan nodes; Mihomo performs that work.
+The JSON contains local `127.0.0.1` profiles only. It excludes upstream UUIDs, passwords, and server addresses. Export and import it again whenever Mihomo ports change.
+
+The page can copy or download either file, or download a ZIP containing both. The header switches between light/dark themes and Chinese/English.
 
 ## Deploy to Cloudflare Pages
 
-The production build creates a real static Pages site at `apps/web/dist/pages`, including `index.html` and `404.html`. The committed `wrangler.jsonc` also declares that directory, so Cloudflare does not need automatic project configuration.
-
-The verified static output is also committed to the repository. Therefore a newly imported Pages project can deploy even when Cloudflare reports “No build command specified” and skips the build. Pages configuration files do not support a `build` field.
-
-### Fork and connect GitHub
+### Deploy a fork with Git integration
 
 1. Select **Fork** on GitHub.
 2. In Cloudflare, open **Workers & Pages → Create application → Pages → Connect to Git**.
-3. Select your fork and use these settings:
+3. Select your fork and its `main` branch.
+4. Use these settings:
 
 | Setting | Value |
 |---|---|
-| Production branch | `main` |
 | Root directory | `/` |
-| Build command | `npm run build` |
+| Build command | Leave blank, or use `npm run build` |
 | Build output directory | `apps/web/dist/pages` |
 
-Do not use `apps/web/dist/client`; it does not contain the prerendered `index.html` and will return 404. No environment variables are required.
+The repository includes deployable static output, so a blank Build command works. Set it to `npm run build` if Cloudflare should regenerate the static output for every deployment.
 
-Cloudflare may assign a random Pages project name. That is supported and does not need to match the repository or the example name in `wrangler.jsonc`.
+A random Pages project name is supported. It does not need to match the repository name, and no environment variables are required.
 
-For automatic source builds, open **Settings → Builds & deployments**, set the Build command to `npm run build`, save, and retry. If it is left blank, Cloudflare deploys the committed `apps/web/dist/pages` output instead.
+### Fix a 404 deployment
 
-### Direct upload with Wrangler
+Confirm that:
 
-```powershell
-npm install
-npm run build
-npx wrangler login
-npx wrangler pages deploy apps/web/dist/pages --project-name <your-pages-project-name>
-```
+- the fork is synced with the latest upstream commit;
+- the output directory is exactly `apps/web/dist/pages`;
+- `apps/web/dist/client` is not being deployed;
+- the Cloudflare application is a Pages project, not a Worker; and
+- the latest commit was redeployed after changing the settings.
 
-The deployed site uses a `*.pages.dev` address. Add a custom domain under the Pages project's **Custom domains** section. For a failed release, select a known-good deployment from **Deployments** and roll back.
-
-### Troubleshooting
-
-- **404 after a successful build:** set the output directory exactly to `apps/web/dist/pages`, then retry the deployment.
-- **No build command specified:** this is supported after the static output was committed. Update to the latest commit; optionally set the Pages Build command to `npm run build` for automatic rebuilds.
-- **Repository is not listed:** allow the Cloudflare GitHub App to access the fork.
-- **Linux native binding missing:** keep the root build command; its prebuild step installs the required Linux bindings.
-- **Old content remains:** verify Cloudflare built the latest commit and clear the Pages build cache before retrying.
-
-## Repository structure
-
-```text
-MultiPort-Proxy/
-├── .github/workflows/ # GitHub CI checks
-├── apps/web/          # converter UI and static Pages output
-├── packages/core/     # parsers, validation, stable IDs, exporters
-├── scripts/           # cross-platform build helpers
-└── wrangler.jsonc     # committed Cloudflare Pages configuration
-```
-
-Chrome extension source is maintained exclusively in [huades/PortPilot](https://github.com/huades/PortPilot).
-
-## Privacy and limitations
-
-- Generated `mihomo.yaml` files contain upstream connection credentials and must be treated as secrets.
-- `browser-profiles.json` contains only local proxy profiles, but review it before sharing.
-- Remote subscription fetching, user accounts, telemetry, and automatic Mihomo/v2rayN process control are intentionally excluded.
-- Browser extensions cannot implement VLESS/VMess/Trojan transports directly through Chrome proxy settings.
-- Parsing support targets common formats; provider-specific or newer fields may still require manual Mihomo adjustments.
-
-## License
-
-No license file is currently included. Unless the repository owner adds one, source availability does not grant redistribution rights.
+On the latest version, **No build command specified** is acceptable: Cloudflare deploys the committed static output directly.

@@ -7,7 +7,8 @@ if (process.platform !== "linux" || process.arch !== "x64") {
 
 const packages = [
   "@rolldown/binding-linux-x64-gnu@1.0.1",
-  "lightningcss-linux-x64-gnu@1.31.1"
+  "lightningcss-linux-x64-gnu@1.31.1",
+  "@tailwindcss/oxide-linux-x64-gnu@4.2.1"
 ];
 const result = spawnSync("npm", ["install", "--no-save", "--ignore-scripts", ...packages], {
   stdio: "inherit",

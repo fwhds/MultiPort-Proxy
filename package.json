@@ -5,6 +5,7 @@
   "workspaces": ["apps/web", "packages/*"],
   "scripts": {
     "dev": "npm run dev -w @multiport/web",
+    "prebuild": "node scripts/ensure-linux-bindings.mjs",
     "build": "npm run build -w @multiport/web",
     "typecheck": "npm run typecheck -w @multiport/core && npm run typecheck -w @multiport/web",
     "test": "npm test -w @multiport/core",

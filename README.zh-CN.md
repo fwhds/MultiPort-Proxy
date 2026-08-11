@@ -129,7 +129,7 @@ PortPilot 只连接本机 HTTP/SOCKS 监听端口，不直接连接 VLESS、VMes
 |---|---|
 | Production branch | `main` |
 | Root directory | `/`（仓库根目录） |
-| Build command | `npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-gnu@1.0.1 && npm run typecheck && npm test && npm run build` |
+| Build command | `npm run typecheck && npm test && npm run build` |
 | Deploy command | `npm run deploy:cloudflare` |
 | Non-production branch deploy command | `npm run preview:cloudflare` |
 
@@ -183,7 +183,7 @@ Cloudflare 官方资料：[Workers Builds](https://developers.cloudflare.com/wor
 - **GitHub 仓库不可见：** 在 GitHub 的 Cloudflare App 安装设置中允许访问 `huades/MultiPort-Proxy`。
 - **Worker 名称不匹配：** Cloudflare 项目名称必须为 `multiport-web`。
 - **找不到 `dist/server/wrangler.json`：** 确认 Root directory 是 `/`，Build command 成功执行了 `npm run build`。
-- **缺少 Linux Rolldown binding：** 使用表格中的完整 Build command，不要删掉显式安装 binding 的部分。
+- **缺少 Linux 原生 binding：** 不要跳过根目录的 `prebuild`；它会在 Linux 上自动安装匹配的 Rolldown 与 Lightning CSS binding。
 - **Worker 可访问但自定义域名不可用：** 确认域名已在同一 Cloudflare 账号激活，且不存在冲突的 CNAME 记录。
 - **新版本部署后异常：** 在 Cloudflare 的 Worker 部署历史中回滚到已知可用版本。
 - **只想手动发布：** 在 Worker 的 **Settings → Builds** 中关闭生产分支自动构建，需要时从 Builds 页面手动触发。

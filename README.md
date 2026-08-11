@@ -127,7 +127,7 @@ For an existing `multiport-web` Worker, open **Settings → Builds → Connect**
 |---|---|
 | Production branch | `main` |
 | Root directory | `/` |
-| Build command | `npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-gnu@1.0.1 && npm run typecheck && npm test && npm run build` |
+| Build command | `npm run typecheck && npm test && npm run build` |
 | Deploy command | `npm run deploy:cloudflare` |
 | Non-production deploy command | `npm run preview:cloudflare` |
 
@@ -179,7 +179,7 @@ Cloudflare references: [Workers Builds](https://developers.cloudflare.com/worker
 - **Repository is not listed:** allow the Cloudflare GitHub App to access `huades/MultiPort-Proxy`.
 - **Worker name mismatch:** the Cloudflare project must be named `multiport-web`.
 - **Missing `dist/server/wrangler.json`:** keep Root directory as `/` and verify that the Build command completed.
-- **Linux Rolldown binding missing:** use the complete Build command from the table.
+- **Linux native binding missing:** do not skip the root `prebuild`; it installs the matching Rolldown and Lightning CSS bindings on Linux.
 - **Worker works but a custom domain does not:** confirm the domain is active in the same Cloudflare account and has no conflicting CNAME record.
 - **A deployment broke the site:** open the Worker deployment history in Cloudflare and roll back to a known-good version.
 - **Manual deployment only:** disable automatic production-branch builds under **Settings → Builds**, then trigger builds from the Builds page.

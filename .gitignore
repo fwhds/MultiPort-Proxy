@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.next/
+.vinext/
+.wrangler/
+*.log
+*.zip
+*.tsbuildinfo
+/release/
+.DS_Store
+
+# Local source material may contain live proxy credentials.
+/config.yaml
+/sub
+/新建 文本文档.txt

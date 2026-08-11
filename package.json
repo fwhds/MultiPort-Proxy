@@ -1,0 +1,13 @@
+{
+  "name": "multiport-proxy",
+  "version": "0.2.0",
+  "private": true,
+  "workspaces": ["apps/web", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev -w @multiport/web",
+    "build": "npm run build -w @multiport/web",
+    "typecheck": "npm run typecheck -w @multiport/core && npm run typecheck -w @multiport/web",
+    "test": "npm test -w @multiport/core",
+    "package:deploy": "node scripts/package-deliverables.mjs"
+  }
+}

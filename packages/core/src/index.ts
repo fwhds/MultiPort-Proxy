@@ -1,0 +1,161 @@
+import { parse, stringify } from "yaml";
+import type { ExtensionManifest, GenerateOptions, GeneratedBundle, ParseIssue, ParseResult, ParsedNode } from "./types";
+export * from "./types";
+
+const SUPPORTED = new Set(["vless", "vmess", "trojan", "ss", "socks", "socks5", "http", "https"]);
+
+function stableHash(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36).padStart(7, "0");
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Node must be an object");
+  return value as Record<string, unknown>;
+}
+
+function nodeFromRaw(raw: Record<string, unknown>, index: number): ParsedNode {
+  const name = String(raw.name || `Node ${index + 1}`);
+  const type = String(raw.type || "").toLowerCase();
+  if (!type) throw new Error(`Node “${name}” is missing its type`);
+  if (!raw.server) throw new Error(`Node “${name}” is missing its server`);
+  if (!Number.isInteger(Number(raw.port)) || Number(raw.port) < 1 || Number(raw.port) > 65535) {
+    throw new Error(`Node “${name}” has an invalid port`);
+  }
+  const fingerprint = stringify({ ...raw, name: undefined });
+  return { id: `node-${stableHash(fingerprint)}`, name, type, raw: { ...raw, name, type, port: Number(raw.port) } };
+}
+
+export function parseClashYaml(source: string): ParseResult {
+  const issues: ParseIssue[] = [];
+  try {
+    const root = asObject(parse(source));
+    if (!Array.isArray(root.proxies)) return { nodes: [], issues: [{ message: "No proxies array was found" }] };
+    const nodes: ParsedNode[] = [];
+    root.proxies.forEach((item, index) => {
+      try { nodes.push(nodeFromRaw(asObject(item), index)); }
+      catch (error) { issues.push({ message: error instanceof Error ? error.message : String(error) }); }
+    });
+    return { nodes: dedupeNames(nodes), issues };
+  } catch (error) {
+    return { nodes: [], issues: [{ message: `Invalid YAML: ${error instanceof Error ? error.message : String(error)}` }] };
+  }
+}
+
+function decodeBase64(value: string): string {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  if (typeof atob === "function") return decodeURIComponent(Array.from(atob(normalized), c => `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`).join(""));
+  return Buffer.from(normalized, "base64").toString("utf8");
+}
+
+function parseVmess(line: string): Record<string, unknown> {
+  const data = JSON.parse(decodeBase64(line.slice("vmess://".length))) as Record<string, unknown>;
+  return {
+    name: data.ps || "VMess node", type: "vmess", server: data.add, port: Number(data.port), uuid: data.id,
+    alterId: Number(data.aid || 0), cipher: data.scy || "auto", tls: data.tls === "tls", servername: data.sni || undefined,
+    network: data.net || undefined,
+    ...(data.net === "ws" ? { "ws-opts": { path: data.path || "/", headers: data.host ? { Host: data.host } : undefined } } : {})
+  };
+}
+
+function parseUrlNode(line: string): Record<string, unknown> {
+  const url = new URL(line);
+  const type = url.protocol.slice(0, -1).toLowerCase();
+  if (!SUPPORTED.has(type)) throw new Error(`Unsupported protocol: ${type}`);
+  const q = url.searchParams;
+  const raw: Record<string, unknown> = {
+    name: decodeURIComponent(url.hash.slice(1)) || `${type.toUpperCase()} ${url.hostname}`,
+    type: type === "socks5" ? "socks5" : type,
+    server: url.hostname,
+    port: Number(url.port || (type === "https" ? 443 : 80))
+  };
+  if (["vless", "trojan"].includes(type)) raw.uuid = decodeURIComponent(url.username);
+  if (["http", "https", "socks", "socks5"].includes(type)) {
+    if (url.username) raw.username = decodeURIComponent(url.username);
+    if (url.password) raw.password = decodeURIComponent(url.password);
+  }
+  if (type === "ss") {
+    let user = decodeURIComponent(url.username);
+    if (!user.includes(":")) user = decodeBase64(user);
+    const [cipher, password] = user.split(":", 2);
+    raw.cipher = cipher; raw.password = password;
+  }
+  if (q.get("security") === "tls" || q.get("security") === "reality") raw.tls = true;
+  if (q.get("sni")) raw.servername = q.get("sni");
+  if (q.get("type")) raw.network = q.get("type");
+  if (q.get("fp")) raw["client-fingerprint"] = q.get("fp");
+  if (q.get("flow")) raw.flow = q.get("flow");
+  if (q.get("type") === "ws") raw["ws-opts"] = { path: q.get("path") || "/", headers: q.get("host") ? { Host: q.get("host") } : undefined };
+  return raw;
+}
+
+export function parseShareLinks(source: string): ParseResult {
+  const nodes: ParsedNode[] = [];
+  const issues: ParseIssue[] = [];
+  source.split(/\r?\n/).forEach((rawLine, index) => {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) return;
+    try {
+      const raw = line.startsWith("vmess://") ? parseVmess(line) : parseUrlNode(line);
+      nodes.push(nodeFromRaw(raw, index));
+    } catch (error) {
+      issues.push({ line: index + 1, message: error instanceof Error ? error.message : String(error) });
+    }
+  });
+  return { nodes: dedupeNames(nodes), issues };
+}
+
+function dedupeNames(nodes: ParsedNode[]): ParsedNode[] {
+  const seen = new Map<string, number>();
+  return nodes.map(node => {
+    const count = (seen.get(node.name) || 0) + 1;
+    seen.set(node.name, count);
+    if (count === 1) return node;
+    const name = `${node.name} (${count})`;
+    return { ...node, name, raw: { ...node.raw, name } };
+  });
+}
+
+export function generateBundle(nodes: ParsedNode[], options: GenerateOptions = {}): GeneratedBundle {
+  const startPort = options.startPort ?? 42000;
+  const host = options.host ?? "127.0.0.1";
+  const listenerType = options.listenerType ?? "mixed";
+  if (!Number.isInteger(startPort) || startPort < 1 || startPort + Math.max(nodes.length - 1, 0) > 65535) throw new Error("Generated port range must stay between 1 and 65535");
+  if (!nodes.length) throw new Error("Select at least one node");
+
+  const listeners = nodes.map((node, index) => ({
+    name: `in-${node.id}`,
+    type: listenerType,
+    port: startPort + index,
+    listen: host,
+    proxy: node.name
+  }));
+  const config = { "allow-lan": host !== "127.0.0.1" && host !== "localhost", mode: "rule", "log-level": "info", proxies: nodes.map(node => node.raw), listeners, rules: ["MATCH,DIRECT"] };
+  const extensionManifest: ExtensionManifest = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    profiles: nodes.map((node, index) => ({ id: node.id, name: node.name, scheme: listenerType === "socks" ? "socks5" : "http", host, port: startPort + index, tags: [node.type] }))
+  };
+  return { mihomoYaml: stringify(config, { lineWidth: 0 }), extensionManifest };
+}
+
+export function validateExtensionManifest(value: unknown): ExtensionManifest {
+  const root = asObject(value);
+  if (root.schemaVersion !== 1 || !Array.isArray(root.profiles)) throw new Error("Unsupported extension manifest");
+  const ids = new Set<string>();
+  const profiles = root.profiles.map((item, index) => {
+    const p = asObject(item);
+    const scheme = String(p.scheme);
+    if (!["http", "https", "socks4", "socks5"].includes(scheme)) throw new Error(`Profile ${index + 1} has an invalid scheme`);
+    if (!p.id || ids.has(String(p.id))) throw new Error(`Profile ${index + 1} has a missing or duplicate id`);
+    ids.add(String(p.id));
+    const port = Number(p.port);
+    if (!p.host || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`Profile ${index + 1} has an invalid endpoint`);
+    return { id: String(p.id), name: String(p.name || p.id), scheme: scheme as "http" | "https" | "socks4" | "socks5", host: String(p.host), port, tags: Array.isArray(p.tags) ? p.tags.map(String) : undefined };
+  });
+  return { schemaVersion: 1, generatedAt: String(root.generatedAt || new Date(0).toISOString()), profiles };
+}

@@ -17,6 +17,8 @@ test("ships the bilingual converter interface without starter content", async ()
   assert.match(page, /parseClashYaml/);
   assert.match(page, /parseShareLinks/);
   assert.match(page, /multiport-proxy-bundle\.zip/);
+  assert.match(page, /useState<ListenerType>\("socks"\)/);
+  assert.match(page, /multiport-theme/);
   assert.match(layout, /MultiPort-Proxy/);
   assert.doesNotMatch(page + layout, /Your site is taking shape|codex-preview|SkeletonPreview/);
 });

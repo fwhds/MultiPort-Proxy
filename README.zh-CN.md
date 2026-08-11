@@ -15,6 +15,7 @@ MultiPort-Proxy 是一个纯浏览器本地运行的中英文转换工具。它�
 - 保留原配置的 DNS、代理组和规则，支持 `dialer-proxy` 链式代理。
 - 支持节点选择、手工 YAML 节点、稳定 ID 与稳定端口映射。
 - 支持中英文切换、可读 YAML/JSON 预览、复制、单独下载和 ZIP 下载。
+- 支持明亮/深色主题切换并记住本机选择。
 
 ## 本地运行
 
@@ -40,7 +41,7 @@ npm run build
 
 1. 从 v2rayN 复制分享链接，或准备本地 Clash/Mihomo YAML。
 2. 在网页选择 **Clash YAML** 或 **分享链接**，粘贴/上传内容并点击 **解析节点**。
-3. 选择节点，设置起始端口、监听地址和 listener 类型。推荐使用 `42000`、`127.0.0.1`、`mixed`。
+3. 选择节点，设置起始端口、监听地址和 listener 类型。默认使用 `42000`、`127.0.0.1`、SOCKS5（`socks`）。
 4. 在网页中检查完整的 `mihomo.yaml` 和 `browser-profiles.json` 预览。
 5. 下载文件或 ZIP。
 6. 启动 Mihomo：

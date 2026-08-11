@@ -27,9 +27,9 @@ The same nodes and start port always produce stable profile IDs and port mapping
 - Creates one independent Mihomo `mixed`, `http`, or `socks` listener per selected node. A `mixed` listener exports both HTTP and SOCKS5 PortPilot profiles on the same local port.
 - Preserves top-level DNS, proxy groups, and rules, and can generate a jump B → exit A `dialer-proxy` chain.
 - Supports adding a node manually from a single-node YAML object.
-- Defaults to `127.0.0.1`, port `42000`, and `mixed` listeners.
+- Defaults to `127.0.0.1`, port `42000`, and SOCKS5 (`socks`) listeners.
 - Exports individual YAML/JSON files or one ZIP bundle.
-- Supports Chinese/English switching in the web interface.
+- Supports Chinese/English and light/dark theme switching in the web interface.
 - Keeps upstream UUIDs, passwords, and server details out of the PortPilot JSON.
 
 ## Quick start
@@ -70,7 +70,7 @@ In v2rayN, select the required servers and use the command that copies selected 
 1. Choose **Clash YAML** or **Share links**.
 2. Paste the content, upload a local `.yaml`, `.yml`, or `.txt` file, then select **Parse nodes**.
 3. Keep the nodes you want enabled.
-4. Set the start port, listen host, and listener type. The recommended local settings are `42000`, `127.0.0.1`, and `mixed`.
+4. Set the start port, listen host, and listener type. The default local settings are `42000`, `127.0.0.1`, and SOCKS5 (`socks`).
 5. Confirm that each selected node receives a different local port.
 
 With `mixed`, each node appears twice in `browser-profiles.json`: one `[HTTP]` profile and one `[SOCKS5]` profile. They intentionally share the same port because a Mihomo mixed listener accepts both protocols.

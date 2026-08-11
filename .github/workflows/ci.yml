@@ -11,5 +11,7 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm exec -w @multiport/web wrangler -- deploy --config ../../wrangler.jsonc --dry-run

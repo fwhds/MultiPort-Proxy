@@ -53,7 +53,7 @@ npm run dev
 npm run typecheck      # TypeScript 类型检查
 npm test               # 核心解析和导出测试
 npm run build          # 构建生产版 Worker
-npm run package:deploy # 在 release/ 下生成部署压缩包
+npm run lint           # ESLint 检查
 ```
 
 ## 使用教程
@@ -110,6 +110,13 @@ PortPilot 只连接本机 HTTP/SOCKS 监听端口，不直接连接 VLESS、VMes
 点击顶部 **Deploy to Cloudflare** 按钮，登录 Cloudflare 与 GitHub，确认自动生成的仓库名和 Worker 名称后部署。Cloudflare 会识别根目录的 `build` 与 `deploy` 命令，并在你的 Git 账号下创建一个新仓库；之后推送代码即可继续通过 Workers Builds 发布。
 
 一键部署要求源仓库保持公开。部署包不包含任何代理节点或凭据，节点配置仍由使用者在自己的浏览器中本地输入。
+
+### Fork 后部署
+
+1. 在 GitHub 点击 **Fork**，将项目复制到自己的账号。
+2. 在 Cloudflare 进入 **Workers & Pages → Create application → Import a repository**，选择自己的 Fork。
+3. Root directory 保持 `/`；Cloudflare 使用 `npm run build`、`npm run deploy` 和仓库中已提交的 `wrangler.jsonc`。
+4. 完成首次部署；以后推送到 Fork 可自动触发 Workers Builds。
 
 ### Cloudflare 控制台关联 GitHub（推荐）
 
@@ -194,10 +201,11 @@ Cloudflare 官方资料：[Workers Builds](https://developers.cloudflare.com/wor
 
 ```text
 MultiPort-Proxy/
+├── .github/workflows/ # GitHub CI 检查
 ├── apps/web/          # 转换网页和 Cloudflare Worker
 ├── packages/core/     # 解析、校验、稳定 ID 和导出逻辑
-├── scripts/           # 交付文件打包
-└── .github/workflows/ # GitHub CI（Cloudflare 由 Workers Builds 部署）
+├── scripts/           # 跨平台构建辅助脚本
+└── wrangler.jsonc     # 已提交的 Cloudflare Worker 配置
 ```
 
 Chrome 扩展源码只在 [huades/PortPilot](https://github.com/huades/PortPilot) 中维护，本仓库不包含扩展源码。

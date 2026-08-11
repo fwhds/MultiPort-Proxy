@@ -53,7 +53,7 @@ Useful commands:
 npm run typecheck     # TypeScript checks
 npm test              # core parser/exporter tests
 npm run build         # production Worker build
-npm run package:deploy # create deployment ZIP files under release/
+npm run lint          # ESLint checks
 ```
 
 ## User guide
@@ -110,6 +110,13 @@ The committed root `wrangler.jsonc` lets Cloudflare recognize the Worker before 
 Select the **Deploy to Cloudflare** button above, sign in to Cloudflare and GitHub, confirm the generated repository and Worker name, then deploy. Cloudflare detects the root `build` and `deploy` scripts and creates a new repository under your Git account so future pushes can continue deploying through Workers Builds.
 
 The source repository must remain public for the button to work. The deployment contains no proxy nodes or credentials; users provide configurations locally in their own browser.
+
+### Fork and deploy
+
+1. Select **Fork** on GitHub and create a copy under your account.
+2. In Cloudflare, import the fork under **Workers & Pages → Create application → Import a repository**.
+3. Keep the repository root as `/`; Cloudflare uses `npm run build`, `npm run deploy`, and the committed `wrangler.jsonc`.
+4. Deploy. Later pushes to your fork can trigger new Workers Builds automatically.
 
 ### Connect the GitHub repository in Cloudflare (recommended)
 
@@ -190,10 +197,11 @@ Cloudflare references: [Workers Builds](https://developers.cloudflare.com/worker
 
 ```text
 MultiPort-Proxy/
+├── .github/workflows/ # GitHub CI checks
 ├── apps/web/          # converter UI and Cloudflare Worker
 ├── packages/core/     # parsers, validation, stable IDs, exporters
-├── scripts/           # deliverable packaging
-└── .github/workflows/ # GitHub CI (Cloudflare deploys with Workers Builds)
+├── scripts/           # cross-platform build helpers
+└── wrangler.jsonc     # committed Cloudflare Worker configuration
 ```
 
 Chrome extension source is maintained exclusively in [huades/PortPilot](https://github.com/huades/PortPilot).

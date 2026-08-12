@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parse as parseYaml } from "yaml";
-import { generateBundle, parseClashYaml, parseShareLinks, validateExtensionManifest, validateNodesForExport } from "../src/index";
+import { generateBundle, mergeParsedNodes, parseClashYaml, parseShareLinks, validateExtensionManifest, validateNodesForExport } from "../src/index";
 
 const sample = `proxies:\n  - name: Demo\n    type: vless\n    server: example.com\n    port: 443\n    uuid: 00000000-0000-0000-0000-000000000001\n  - name: Demo\n    type: trojan\n    server: 192.0.2.10\n    port: 443\n    password: redacted`;
 
@@ -86,6 +86,34 @@ test("reports and blocks incomplete Reality links before export", () => {
   assert.match(result.issues[0].message, /missing pbk/);
   assert.match(result.issues[1].message, /missing sid/);
   assert.throws(() => generateBundle(result.nodes), /Cannot export:.*missing pbk.*missing sid/);
+});
+
+test("reports and blocks protocols with missing required credentials", () => {
+  const parsed = parseClashYaml(`proxies:
+  - name: Broken Trojan
+    type: trojan
+    server: example.com
+    port: 443
+  - name: Broken Shadowsocks
+    type: ss
+    server: example.net
+    port: 8388
+    cipher: aes-128-gcm
+`);
+  assert.equal(parsed.nodes.length, 2);
+  assert.deepEqual(parsed.issues.map(issue => issue.message), [
+    'Node "Broken Trojan" (trojan) is missing password',
+    'Node "Broken Shadowsocks" (ss) is missing password'
+  ]);
+  assert.throws(() => generateBundle(parsed.nodes), /Cannot export:.*missing password/);
+});
+
+test("merges YAML and share-link nodes with deterministic names", () => {
+  const yaml = parseClashYaml(sample);
+  const links = parseShareLinks("trojan://secret@example.net:443#Demo");
+  const merged = mergeParsedNodes(yaml.nodes, links.nodes);
+  assert.deepEqual(merged.map(node => node.name), ["Demo", "Demo (2)", "Demo (3)"]);
+  assert.equal(merged[2].raw.password, "secret");
 });
 
 test("rejects overflowing generated ports", () => {

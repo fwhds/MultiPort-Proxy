@@ -39,6 +39,16 @@ function nonEmptyString(value: unknown): boolean {
 
 function validateNodeForExport(node: ParsedNode): ParseIssue[] {
   const issues: ParseIssue[] = [];
+  if ((node.type === "vless" || node.type === "vmess") && !nonEmptyString(node.raw.uuid)) {
+    issues.push({ message: `Node "${node.name}" (${node.type}) is missing uuid` });
+  }
+  if (node.type === "trojan" && !nonEmptyString(node.raw.password)) {
+    issues.push({ message: `Node "${node.name}" (trojan) is missing password` });
+  }
+  if (node.type === "ss") {
+    if (!nonEmptyString(node.raw.cipher)) issues.push({ message: `Node "${node.name}" (ss) is missing cipher` });
+    if (!nonEmptyString(node.raw.password)) issues.push({ message: `Node "${node.name}" (ss) is missing password` });
+  }
   const reality = node.raw["reality-opts"];
   if (reality !== undefined) {
     if (!reality || typeof reality !== "object" || Array.isArray(reality)) {
@@ -58,6 +68,14 @@ function validateNodeForExport(node: ParsedNode): ParseIssue[] {
 
 export function validateNodesForExport(nodes: ParsedNode[]): ParseIssue[] {
   return nodes.flatMap(validateNodeForExport);
+}
+
+export function mergeParsedNodes(...groups: ParsedNode[][]): ParsedNode[] {
+  const unique = new Map<string, ParsedNode>();
+  groups.flat().forEach(node => {
+    if (!unique.has(node.id)) unique.set(node.id, node);
+  });
+  return dedupeNames([...unique.values()]);
 }
 
 export function parseClashYaml(source: string): ParseResult {
@@ -159,12 +177,19 @@ export function parseManualNode(source: string): ParsedNode {
 }
 
 function dedupeNames(nodes: ParsedNode[]): ParsedNode[] {
-  const seen = new Map<string, number>();
+  const used = new Set<string>();
   return nodes.map(node => {
-    const count = (seen.get(node.name) || 0) + 1;
-    seen.set(node.name, count);
-    if (count === 1) return node;
-    const name = `${node.name} (${count})`;
+    if (!used.has(node.name)) {
+      used.add(node.name);
+      return node;
+    }
+    let count = 2;
+    let name = `${node.name} (${count})`;
+    while (used.has(name)) {
+      count += 1;
+      name = `${node.name} (${count})`;
+    }
+    used.add(name);
     return { ...node, name, raw: { ...node.raw, name } };
   });
 }

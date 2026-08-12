@@ -16,6 +16,10 @@ test("ships the bilingual converter interface without starter content", async ()
   assert.match(page, /browser-profiles\.json/);
   assert.match(page, /parseClashYaml/);
   assert.match(page, /parseShareLinks/);
+  assert.match(page, /value=\{yamlSource\}/);
+  assert.match(page, /value=\{linkSource\}/);
+  assert.match(page, /mergeParsedNodes/);
+  assert.match(page, /Parse and merge/);
   assert.match(page, /multiport-proxy-bundle\.zip/);
   assert.match(page, /useState<ListenerType>\("socks"\)/);
   assert.match(page, /multiport-theme/);

@@ -21,9 +21,11 @@ test("ships the bilingual converter interface without starter content", async ()
   assert.match(page, /mergeParsedNodes/);
   assert.match(page, /Parse and merge/);
   assert.match(page, /generation\.error/);
-  assert.match(page, /Files cannot be generated/);
   assert.match(page, /multiport-proxy-bundle\.zip/);
   assert.match(page, /useState<ListenerType>\("socks"\)/);
+  assert.match(page, /useState\(8000\)/);
+  assert.match(page, /validateNodesForExport/);
+  assert.match(page, /Automatically deselected/);
   assert.match(page, /multiport-theme/);
   assert.match(layout, /MultiPort-Proxy/);
   assert.doesNotMatch(page + layout, /Your site is taking shape|codex-preview|SkeletonPreview/);

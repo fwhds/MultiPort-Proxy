@@ -195,7 +195,7 @@ function dedupeNames(nodes: ParsedNode[]): ParsedNode[] {
 }
 
 export function generateBundle(nodes: ParsedNode[], options: GenerateOptions = {}): GeneratedBundle {
-  const startPort = options.startPort ?? 42000;
+  const startPort = options.startPort ?? 8000;
   const host = options.host ?? "127.0.0.1";
   const listenerType = options.listenerType ?? "mixed";
   const mode = options.mode ?? "listeners";

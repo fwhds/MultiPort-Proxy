@@ -120,3 +120,9 @@ test("rejects overflowing generated ports", () => {
   const nodes = parseClashYaml(sample).nodes;
   assert.throws(() => generateBundle(nodes, { startPort: 65535 }), /port range/);
 });
+
+test("uses port 8000 as the default listener start", () => {
+  const nodes = parseClashYaml(sample).nodes;
+  const generated = generateBundle(nodes);
+  assert.deepEqual(generated.extensionManifest.profiles.map(profile => profile.port), [8000, 8000, 8001, 8001]);
+});

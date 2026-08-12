@@ -19,7 +19,7 @@ Remote subscription URLs are not fetched. Paste the subscription file contents o
 
 1. Select **Parse nodes**.
 2. Keep the required nodes selected.
-3. Set the start port and listen address. The defaults are `42000` and `127.0.0.1`.
+3. Set the start port and listen address. The defaults are `8000` and `127.0.0.1`.
 4. The default listener is **SOCKS5**; HTTP and mixed are also available.
 5. Confirm that every selected node has a different local port.
 
